@@ -7,6 +7,7 @@ import arc.scene.ui.ImageButton;
 import arc.scene.ui.layout.Cell;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
+import arc.util.Align;
 import mindustry.Vars;
 import mindustry.gen.Icon;
 import mindustry.type.Item;
@@ -25,6 +26,7 @@ import mindustry.world.blocks.production.Drill;
  */
 public class DrillUi {
     static boolean open;
+    static boolean water;
     static Drill selDrill;
     static Block selConv;
     static Tile pending;
@@ -32,7 +34,7 @@ public class DrillUi {
     private static final float BTN = 44f, ICON = 30f;
     private static Seq<Drill> drills = new Seq<>();
     private static Seq<Block> convs = new Seq<>();
-    private static Cell<Table> convCell, dirCell;
+    private static Cell<Table> convCell;
     private static Table panel;
 
     static void reset() {
@@ -59,23 +61,6 @@ public class DrillUi {
             panel = new Table();
             panel.bottom().left();
 
-            // direction row (after clicking ore)
-            Table dirRow = new Table(Styles.black5);
-            TextureRegionDrawable[] arrows = {Icon.right, Icon.up, Icon.left, Icon.down};
-            for (int r = 0; r < 4; r++) {
-                int rot = r;
-                ImageButton ib = new ImageButton(arrows[r], Styles.cleari);
-                ib.resizeImage(ICON);
-                ib.clicked(() -> {
-                    if (pending != null && selDrill != null && selConv != null) {
-                        AutoDrill.placeWithConveyors(selDrill, selConv, pending, rot);
-                        pending = null;
-                    }
-                });
-                dirRow.add(ib).size(BTN);
-            }
-            dirRow.visible(() -> open && pending != null);
-
             // conveyor row
             Table convRow = new Table(Styles.black5);
             for (Block conv : convs) {
@@ -87,6 +72,14 @@ public class DrillUi {
                 });
                 ib.update(() -> ib.setChecked(selConv == conv));
                 convRow.add(ib).size(BTN);
+            }
+            Block extractor = Vars.content.block("water-extractor");
+            if (extractor != null) {
+                ImageButton wb = new ImageButton(new TextureRegionDrawable(extractor.uiIcon), Styles.clearTogglei);
+                wb.resizeImage(ICON);
+                wb.clicked(() -> water = !water);
+                wb.update(() -> wb.setChecked(water));
+                convRow.add(wb).size(BTN).padLeft(10f);
             }
             convRow.visible(() -> open && selDrill != null);
 
@@ -113,8 +106,6 @@ public class DrillUi {
             });
             toggle.update(() -> toggle.setChecked(open));
 
-            dirCell = panel.add(dirRow).left();
-            panel.row();
             convCell = panel.add(convRow).left();
             panel.row();
             panel.add(drillRow).left();
@@ -123,16 +114,39 @@ public class DrillUi {
 
             parent.add(panel);
         });
+
+        // floating direction picker, anchored under the clicked ore tile
+        Table dirTable = new Table(Styles.black6);
+        dirTable.margin(4f);
+        TextureRegionDrawable[] arrows = {Icon.right, Icon.up, Icon.left, Icon.down};
+        for (int r = 0; r < 4; r++) {
+            int rot = r;
+            ImageButton ib = new ImageButton(arrows[r], Styles.cleari);
+            ib.resizeImage(ICON);
+            ib.clicked(() -> {
+                if (pending != null && selDrill != null && selConv != null) {
+                    AutoDrill.placeWithConveyors(selDrill, selConv, pending, rot, water);
+                    pending = null;
+                }
+            });
+            dirTable.add(ib).size(BTN);
+        }
+        dirTable.visible(() -> open && pending != null && Vars.state.isGame());
+        dirTable.update(() -> {
+            if (pending == null) return;
+            Vec2 v = Core.input.mouseScreen(pending.worldx(), pending.worldy() - 6f);
+            dirTable.pack();
+            dirTable.setPosition(v.x, v.y, Align.top);
+        });
+        dirTable.pack();
+        Vars.ui.hudGroup.addChild(dirTable);
     }
 
-    /** Center the conveyor/direction rows above the selected drill button. */
+    /** Center the conveyor row above the selected drill button. */
     private static void centerRows() {
         if (convCell == null || selDrill == null) return;
         float drillCenter = drills.indexOf(selDrill) * BTN + BTN / 2f;
-        float convPad = Math.max(0f, drillCenter - convs.size * BTN / 2f);
-        float dirPad = Math.max(0f, drillCenter - 4 * BTN / 2f);
-        convCell.padLeft(convPad);
-        dirCell.padLeft(dirPad);
+        convCell.padLeft(Math.max(0f, drillCenter - (convs.size + 1) * BTN / 2f));
         if (panel != null) panel.invalidateHierarchy();
     }
 

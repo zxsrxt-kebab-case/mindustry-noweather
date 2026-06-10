@@ -19,8 +19,10 @@ import mindustry.world.Build;
 import mindustry.world.Tile;
 import mindustry.world.blocks.distribution.ItemBridge;
 import mindustry.world.blocks.distribution.StackConveyor;
+import mindustry.world.blocks.power.PowerNode;
 import mindustry.world.blocks.production.BurstDrill;
 import mindustry.world.blocks.production.Drill;
+import mindustry.world.blocks.production.SolidPump;
 
 public class AutoDrill {
     private static final int MAX_PATCH = 2000, MAX_PLANS = 256, MAX_BRIDGES = 400;
@@ -67,7 +69,7 @@ public class AutoDrill {
      * four neighboring drills each, endpoints are chained with spans flying over the drills,
      * and a single output line of the chosen conveyor leaves the field in the picked direction.
      */
-    static void placeWithConveyors(Drill drill, Block conveyor, Tile start, int rot) {
+    static void placeWithConveyors(Drill drill, Block conveyor, Tile start, int rot, boolean water) {
         Item item = start.drop();
         if (item == null || drill.tier < item.hardness || Vars.player.unit() == null) return;
         ItemBridge bridge = findBridge();
@@ -209,15 +211,131 @@ public class AutoDrill {
             int cy = horizontal ? outRow : a;
             if (Build.validPlace(conveyor, Vars.player.team(), cx, cy, rot)) {
                 Vars.player.unit().addBuild(new BuildPlan(cx, cy, rot, conveyor));
+                occupied.add(Point2.pack(cx, cy));
                 conveyors++;
             }
         }
+
+        if (water) placeWater(drills, s, off, occupied);
 
         int coveredOre = 0;
         for (int[] c : drills) coveredOre += c[2];
         float perSecond = coveredOre * 60f / drill.getDrillTime(item);
         toast(Core.bundle.format("nv.autodrill.done3",
             drills.size, nodes.size, conveyors, Strings.fixed(perSecond, 1)));
+    }
+
+    /**
+     * Water extractors packed right against the drills (SolidPump dumps liquid into adjacent
+     * blocks, no conduits needed), then power nodes covering the extractors. Power still has
+     * to be brought to any node by the player.
+     */
+    private static void placeWater(Seq<int[]> drills, int s, int off, IntSet occupied) {
+        if (!(Vars.content.block("water-extractor") instanceof SolidPump ext)) return;
+        int es = ext.size, eoff = ext.sizeOffset;
+
+        boolean[] wet = new boolean[drills.size];
+        Seq<int[]> extractors = new Seq<>(); // footprint origin {x, y}
+        while (extractors.size < 64) {
+            IntIntMap score = new IntIntMap();
+            for (int i = 0; i < drills.size; i++) {
+                if (wet[i]) continue;
+                int fx = drills.get(i)[0] + off, fy = drills.get(i)[1] + off;
+                for (int ax = fx - es; ax <= fx + s; ax++) {
+                    for (int ay = fy - es; ay <= fy + s; ay++) {
+                        if (!rectTouches(ax, ay, es, fx, fy, s)) continue;
+                        if (!footprintFree(ax, ay, es, occupied)) continue;
+                        if (!Build.validPlace(ext, Vars.player.team(), ax - eoff, ay - eoff, 0)) continue;
+                        score.increment(Point2.pack(ax, ay), 0, 1);
+                    }
+                }
+            }
+            int bestPos = 0, bestScore = 0;
+            for (IntIntMap.Entry e : score) {
+                if (e.value > bestScore) {
+                    bestScore = e.value;
+                    bestPos = e.key;
+                }
+            }
+            if (bestScore == 0) break;
+            int ax = Point2.x(bestPos), ay = Point2.y(bestPos);
+            for (int dx = 0; dx < es; dx++) {
+                for (int dy = 0; dy < es; dy++) {
+                    occupied.add(Point2.pack(ax + dx, ay + dy));
+                }
+            }
+            Vars.player.unit().addBuild(new BuildPlan(ax - eoff, ay - eoff, 0, ext));
+            extractors.add(new int[]{ax, ay});
+            for (int i = 0; i < drills.size; i++) {
+                if (!wet[i] && rectTouches(ax, ay, es, drills.get(i)[0] + off, drills.get(i)[1] + off, s)) {
+                    wet[i] = true;
+                }
+            }
+        }
+        if (extractors.isEmpty()) return;
+
+        // power nodes (they auto-link to nearby buildings when built)
+        int nodeCount = 0;
+        if (Vars.content.block("power-node") instanceof PowerNode nodeBlock) {
+            float range = nodeBlock.laserRange;
+            boolean[] powered = new boolean[extractors.size];
+            while (nodeCount < 32) {
+                int bestPos = 0, bestScore = 0;
+                IntSet tried = new IntSet();
+                for (int i = 0; i < extractors.size; i++) {
+                    if (powered[i]) continue;
+                    int ax = extractors.get(i)[0], ay = extractors.get(i)[1];
+                    for (int px = ax - 1; px <= ax + es; px++) {
+                        for (int py = ay - 1; py <= ay + es; py++) {
+                            boolean edge = px == ax - 1 || px == ax + es || py == ay - 1 || py == ay + es;
+                            int pos = Point2.pack(px, py);
+                            if (!edge || !tried.add(pos) || occupied.contains(pos)) continue;
+                            if (!Build.validPlace(nodeBlock, Vars.player.team(), px, py, 0)) continue;
+                            int count = 0;
+                            for (int j = 0; j < extractors.size; j++) {
+                                if (!powered[j] && nodeReaches(px, py, extractors.get(j), es, range)) count++;
+                            }
+                            if (count > bestScore) {
+                                bestScore = count;
+                                bestPos = pos;
+                            }
+                        }
+                    }
+                }
+                if (bestScore == 0) break;
+                int px = Point2.x(bestPos), py = Point2.y(bestPos);
+                occupied.add(bestPos);
+                Vars.player.unit().addBuild(new BuildPlan(px, py, 0, nodeBlock));
+                nodeCount++;
+                for (int j = 0; j < extractors.size; j++) {
+                    if (!powered[j] && nodeReaches(px, py, extractors.get(j), es, range)) powered[j] = true;
+                }
+            }
+        }
+
+        toast(Core.bundle.format("nv.autodrill.water", extractors.size, nodeCount));
+    }
+
+    private static boolean nodeReaches(int px, int py, int[] extractor, int es, float range) {
+        float cx = extractor[0] + (es - 1) / 2f, cy = extractor[1] + (es - 1) / 2f;
+        return Math.abs(px - cx) <= range && Math.abs(py - cy) <= range
+            && Math.hypot(px - cx, py - cy) <= range;
+    }
+
+    private static boolean rectTouches(int ax, int ay, int asize, int bx, int by, int bsize) {
+        boolean overlapX = ax + asize > bx && bx + bsize > ax;
+        boolean overlapY = ay + asize > by && by + bsize > ay;
+        return (overlapX && (ay + asize == by || by + bsize == ay))
+            || (overlapY && (ax + asize == bx || bx + bsize == ax));
+    }
+
+    private static boolean footprintFree(int ax, int ay, int size, IntSet occupied) {
+        for (int dx = 0; dx < size; dx++) {
+            for (int dy = 0; dy < size; dy++) {
+                if (occupied.contains(Point2.pack(ax + dx, ay + dy))) return false;
+            }
+        }
+        return true;
     }
 
     /** BFS from the output across bridge links; every visited node's config points to its parent. */
