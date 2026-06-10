@@ -30,4 +30,7 @@ dependencies {
 
 jar {
     archiveBaseName = 'no-weather-mod'
+
+    // mod.json lives in the repo root so the mod browser indexer can read it
+    from('mod.json')
 }
