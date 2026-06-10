@@ -11,6 +11,10 @@ All toggles live in **Settings → Visual tweaks** (English and Russian localiza
 - **Hide weather effects** — completely skips weather rendering and silences weather sounds (rain, wind)
 - **Hide environment fog/haze** — removes ambient env renderers: Erekir clouds/fog, heat shimmer, underwater tint
 - **Remove map edge darkness** — disables the dark border fade around the map
+- **Enemy/ally turret ranges** — dashed range circles drawn on the map (enemy red, ally green)
+- **Health bars** — compact HP bars over damaged units and buildings
+- **Floating damage numbers** — damage popups over targets (yellow for enemies, red when your team takes damage)
+- **Highlight my blocks** — outlines blocks you placed this session, handy on busy multiplayer servers
 
 ## Installation
 

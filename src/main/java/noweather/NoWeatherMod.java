@@ -28,11 +28,25 @@ public class NoWeatherMod extends Mod {
             if (hideWeather() && Vars.state.isGame()) {
                 Groups.weather.each(w -> w.opacity(0f));
             }
+            Visuals.update();
+        });
+
+        Events.run(EventType.Trigger.draw, Visuals::draw);
+
+        Events.on(EventType.BlockBuildEndEvent.class, e -> {
+            if (e.unit == Vars.player.unit() && e.tile != null) {
+                if (e.breaking) {
+                    Visuals.removeMyBlock(e.tile.pos());
+                } else {
+                    Visuals.addMyBlock(e.tile.pos());
+                }
+            }
         });
 
         // Rules come from the map/server on every world load — remember the original
         // borderDarkness so the toggle can restore it
         Events.on(EventType.WorldLoadEvent.class, e -> Core.app.post(() -> {
+            Visuals.reset();
             mapBorderDarkness = Vars.state.rules.borderDarkness;
             applyBorderDarkness();
         }));
@@ -49,6 +63,11 @@ public class NoWeatherMod extends Mod {
                         value -> applyEnvRenderers());
                     table.checkPref("noweather-nodarkness", true,
                         value -> applyBorderDarkness());
+                    table.checkPref("nv-ranges-enemy", true);
+                    table.checkPref("nv-ranges-own", false);
+                    table.checkPref("nv-healthbars", true);
+                    table.checkPref("nv-damage", true);
+                    table.checkPref("nv-myblocks", true);
                 }
             );
         }));
