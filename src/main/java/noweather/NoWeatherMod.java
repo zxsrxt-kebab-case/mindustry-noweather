@@ -53,6 +53,7 @@ public class NoWeatherMod extends Mod {
 
         Events.on(EventType.ClientLoadEvent.class, e -> Core.app.post(() -> {
             applyEnvRenderers();
+            BestAmmo.apply();
             Vars.ui.settings.addCategory(
                 Core.bundle.get("setting.noweather.category", "Visual tweaks"),
                 Icon.waves,

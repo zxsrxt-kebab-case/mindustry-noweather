@@ -15,6 +15,7 @@ All toggles live in **Settings → Visual tweaks** (English and Russian localiza
 - **Health bars** — compact HP bars over damaged units and buildings
 - **Floating damage numbers** — damage popups over targets (yellow for enemies, red when your team takes damage)
 - **Highlight my blocks** — outlines blocks you placed this session, handy on busy multiplayer servers
+- **DPS by ammo** — every item turret's info dialog gets a computed single-target DPS line per ammo type, with the best one highlighted (accounts for reload multipliers, splash and frag bullets)
 
 ## Installation
 
