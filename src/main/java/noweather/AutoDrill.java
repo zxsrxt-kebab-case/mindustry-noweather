@@ -234,30 +234,47 @@ public class AutoDrill {
         if (!(Vars.content.block("water-extractor") instanceof SolidPump ext)) return;
         int es = ext.size, eoff = ext.sizeOffset;
 
-        boolean[] wet = new boolean[drills.size];
+        // one extractor per drill: candidate spots around each drill footprint
+        Seq<IntSeq> cands = new Seq<>();
+        for (int[] d : drills) {
+            IntSeq list = new IntSeq();
+            int fx = d[0] + off, fy = d[1] + off;
+            for (int ax = fx - es; ax <= fx + s; ax++) {
+                for (int ay = fy - es; ay <= fy + s; ay++) {
+                    if (rectTouches(ax, ay, es, fx, fy, s)) list.add(Point2.pack(ax, ay));
+                }
+            }
+            cands.add(list);
+        }
+
+        // serve the most constrained drills first; prefer spots touching fewer other drills,
+        // leaving the shared cells for the neighbors that still need their own extractor
+        Seq<int[]> orderIdx = new Seq<>();
+        for (int i = 0; i < drills.size; i++) orderIdx.add(new int[]{i, cands.get(i).size});
+        orderIdx.sort(a -> a[1]);
+
         Seq<int[]> extractors = new Seq<>(); // footprint origin {x, y}
-        while (extractors.size < 64) {
-            IntIntMap score = new IntIntMap();
-            for (int i = 0; i < drills.size; i++) {
-                if (wet[i]) continue;
-                int fx = drills.get(i)[0] + off, fy = drills.get(i)[1] + off;
-                for (int ax = fx - es; ax <= fx + s; ax++) {
-                    for (int ay = fy - es; ay <= fy + s; ay++) {
-                        if (!rectTouches(ax, ay, es, fx, fy, s)) continue;
-                        if (!footprintFree(ax, ay, es, occupied)) continue;
-                        if (!Build.validPlace(ext, Vars.player.team(), ax - eoff, ay - eoff, 0)) continue;
-                        score.increment(Point2.pack(ax, ay), 0, 1);
-                    }
+        for (int[] oi : orderIdx) {
+            if (extractors.size >= MAX_PLANS) break;
+            IntSeq list = cands.get(oi[0]);
+            int bestPos = -1, bestTouch = Integer.MAX_VALUE;
+            for (int j = 0; j < list.size; j++) {
+                int pos = list.get(j);
+                int ax = Point2.x(pos), ay = Point2.y(pos);
+                if (!footprintFree(ax, ay, es, occupied)) continue;
+                if (!Build.validPlace(ext, Vars.player.team(), ax - eoff, ay - eoff, 0)) continue;
+                int touch = 0;
+                for (int k = 0; k < drills.size; k++) {
+                    if (k == oi[0]) continue;
+                    int[] d2 = drills.get(k);
+                    if (rectTouches(ax, ay, es, d2[0] + off, d2[1] + off, s)) touch++;
+                }
+                if (touch < bestTouch) {
+                    bestTouch = touch;
+                    bestPos = pos;
                 }
             }
-            int bestPos = 0, bestScore = 0;
-            for (IntIntMap.Entry e : score) {
-                if (e.value > bestScore) {
-                    bestScore = e.value;
-                    bestPos = e.key;
-                }
-            }
-            if (bestScore == 0) break;
+            if (bestPos == -1) continue; // no room — this drill stays dry
             int ax = Point2.x(bestPos), ay = Point2.y(bestPos);
             for (int dx = 0; dx < es; dx++) {
                 for (int dy = 0; dy < es; dy++) {
@@ -266,11 +283,6 @@ public class AutoDrill {
             }
             Vars.player.unit().addBuild(new BuildPlan(ax - eoff, ay - eoff, 0, ext));
             extractors.add(new int[]{ax, ay});
-            for (int i = 0; i < drills.size; i++) {
-                if (!wet[i] && rectTouches(ax, ay, es, drills.get(i)[0] + off, drills.get(i)[1] + off, s)) {
-                    wet[i] = true;
-                }
-            }
         }
         if (extractors.isEmpty()) return;
 

@@ -127,6 +127,7 @@ public class DrillUi {
                 if (pending != null && selDrill != null && selConv != null) {
                     AutoDrill.placeWithConveyors(selDrill, selConv, pending, rot, water);
                     pending = null;
+                    open = false;
                 }
             });
             dirTable.add(ib).size(BTN);
@@ -134,6 +135,10 @@ public class DrillUi {
         dirTable.visible(() -> open && pending != null && Vars.state.isGame());
         dirTable.update(() -> {
             if (pending == null) return;
+            // the armed click must not start manual mining
+            if (Vars.player.unit() != null && Vars.player.unit().mining()) {
+                Vars.player.unit().mineTile(null);
+            }
             Vec2 v = Core.input.mouseScreen(pending.worldx(), pending.worldy() - 6f);
             dirTable.pack();
             dirTable.setPosition(v.x, v.y, Align.top);
@@ -165,6 +170,10 @@ public class DrillUi {
             return;
         }
         pending = tile;
+        if (Vars.player.unit() != null) Vars.player.unit().mineTile(null);
+        Core.app.post(() -> {
+            if (Vars.player.unit() != null) Vars.player.unit().mineTile(null);
+        });
         Vars.ui.showInfoToast(Core.bundle.get("nv.autodrill.pick", "Choose output direction"), 2f);
     }
 }
