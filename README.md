@@ -20,6 +20,9 @@ All toggles live in **Settings → Visual tweaks** (English and Russian localiza
 - **Core resource rates** — HUD panel with ±items/s for every core resource, averaged over 5 seconds
 - **Warning icons** — blinking markers over your turrets without ammo and generators without fuel
 - **Drill yield on hover** — point at an ore tile to see items/s for every drill that can mine it (full coverage, no boost)
+- **Power grid panel** — total power balance per second and battery charge percentage across all your networks
+- **Projector ranges** — dashed circles for built mend (green), overdrive (orange) and force (team color) projectors
+- **Spawn markers** — red drop-zone circles with a unit icon at enemy wave spawn points
 
 ## Installation
 

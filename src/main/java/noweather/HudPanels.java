@@ -2,14 +2,19 @@ package noweather;
 
 import arc.Core;
 import arc.scene.ui.layout.Table;
+import arc.struct.ObjectSet;
 import arc.struct.Seq;
 import arc.util.Interval;
 import arc.util.Strings;
 import mindustry.Vars;
 import mindustry.game.SpawnGroup;
+import mindustry.gen.Building;
+import mindustry.gen.Groups;
+import mindustry.gen.Icon;
 import mindustry.type.Item;
 import mindustry.type.UnitType;
 import mindustry.ui.Styles;
+import mindustry.world.blocks.power.PowerGraph;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +23,9 @@ import java.util.Map;
 public class HudPanels {
     private static int builtWave = -1;
     private static final Interval timer = new Interval();
+    private static final Interval powerTimer = new Interval();
     private static final Seq<int[]> samples = new Seq<>();
+    private static final ObjectSet<PowerGraph> graphs = new ObjectSet<>();
 
     static void reset() {
         builtWave = -1;
@@ -46,8 +53,43 @@ public class HudPanels {
             rates.margin(6f);
             rates.visible(() -> on("nv-corerates") && Vars.state.isGame() && Vars.player.team().core() != null);
             rates.update(() -> updateRates(rates));
-            parent.add(rates).right().padTop(6f);
+            parent.add(rates).right().padTop(6f).row();
+
+            Table power = new Table(Styles.black3);
+            power.margin(6f);
+            power.visible(() -> on("nv-power") && Vars.state.isGame());
+            power.update(() -> updatePower(power));
+            parent.add(power).right().padTop(6f);
         });
+    }
+
+    private static void updatePower(Table t) {
+        if (!powerTimer.get(30f)) return;
+        graphs.clear();
+        float balance = 0f, stored = 0f, capacity = 0f;
+        for (Building b : Groups.build) {
+            if (b.team != Vars.player.team() || b.power == null) continue;
+            if (graphs.add(b.power.graph)) {
+                PowerGraph g = b.power.graph;
+                balance += g.getPowerBalance() * 60f;
+                stored += g.getBatteryStored();
+                capacity += g.getTotalBatteryCapacity();
+            }
+        }
+        t.clearChildren();
+        if (graphs.isEmpty()) return;
+
+        Table row = new Table();
+        row.image(Icon.power.getRegion()).size(18f).padRight(4f);
+        row.add((balance >= 0 ? "[lime]+" : "[scarlet]") + Strings.fixed(balance, 0)
+            + "[lightgray]/" + Core.bundle.get("nv.sec", "s")).left();
+        t.add(row).left().row();
+
+        if (capacity > 0) {
+            int percent = Math.round(stored / capacity * 100f);
+            String color = percent > 50 ? "[lime]" : percent > 20 ? "[yellow]" : "[scarlet]";
+            t.add("[lightgray]" + Core.bundle.get("nv.battery", "Bat.") + " " + color + percent + "%").left();
+        }
     }
 
     private static void rebuildWave(Table t) {

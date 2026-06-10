@@ -26,6 +26,9 @@ import mindustry.type.Item;
 import mindustry.ui.Fonts;
 import mindustry.world.Block;
 import mindustry.world.Tile;
+import mindustry.world.blocks.defense.ForceProjector;
+import mindustry.world.blocks.defense.MendProjector;
+import mindustry.world.blocks.defense.OverdriveProjector;
 import mindustry.world.blocks.defense.turrets.BaseTurret;
 import mindustry.world.blocks.defense.turrets.Turret;
 import mindustry.world.blocks.power.PowerGenerator;
@@ -115,10 +118,11 @@ public class Visuals {
         boolean rangesEnemy = on("nv-ranges-enemy", true);
         boolean rangesOwn = on("nv-ranges-own", false);
         boolean bars = on("nv-healthbars", true);
+        boolean projectors = on("nv-projectors", true);
 
         Draw.z(Layer.overlayUI);
 
-        if (rangesEnemy || rangesOwn || bars) {
+        if (rangesEnemy || rangesOwn || bars || projectors) {
             Groups.build.each(b -> {
                 if ((rangesEnemy || rangesOwn) && b instanceof BaseTurret.BaseTurretBuild t) {
                     boolean ally = b.team == Vars.player.team();
@@ -128,10 +132,33 @@ public class Visuals {
                         Drawf.dashCircle(b.x, b.y, r, ally ? Pal.heal : Pal.health);
                     }
                 }
+                if (projectors && b.team == Vars.player.team()) {
+                    float pr =
+                        b.block instanceof MendProjector m ? m.range :
+                        b.block instanceof OverdriveProjector o ? o.range :
+                        b.block instanceof ForceProjector f ? f.radius : 0f;
+                    if (pr > 0f && cam.overlaps(Tmp.r1.set(b.x - pr, b.y - pr, pr * 2f, pr * 2f))) {
+                        Drawf.dashCircle(b.x, b.y, pr,
+                            b.block instanceof MendProjector ? Pal.heal :
+                            b.block instanceof OverdriveProjector ? Pal.accent : b.team.color);
+                    }
+                }
                 if (bars && b.health < b.maxHealth - 0.01f && cam.contains(b.x, b.y)) {
                     drawBar(b.x, b.y + b.block.size * 4f, b.block.size * 8f * 0.8f, b.health / b.maxHealth);
                 }
             });
+        }
+
+        if (on("nv-spawns", true) && Vars.state.rules.waves) {
+            float dropRadius = Vars.state.rules.dropZoneRadius;
+            for (Tile spawn : Vars.spawner.getSpawns()) {
+                float sx = spawn.worldx(), sy = spawn.worldy();
+                if (!cam.overlaps(Tmp.r1.set(sx - dropRadius, sy - dropRadius, dropRadius * 2f, dropRadius * 2f))) continue;
+                Drawf.dashCircle(sx, sy, dropRadius, Pal.remove);
+                Draw.color(Pal.remove, 0.8f);
+                Draw.rect(Icon.units.getRegion(), sx, sy, 10f, 10f);
+                Draw.color();
+            }
         }
 
         if (bars) {

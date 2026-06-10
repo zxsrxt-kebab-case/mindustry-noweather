@@ -75,6 +75,9 @@ public class NoWeatherMod extends Mod {
                     table.checkPref("nv-corerates", true);
                     table.checkPref("nv-alerts", true);
                     table.checkPref("nv-orehover", true);
+                    table.checkPref("nv-power", true);
+                    table.checkPref("nv-projectors", true);
+                    table.checkPref("nv-spawns", true);
                 }
             );
         }));
