@@ -3,7 +3,7 @@
   "displayName": "No Weather",
   "author": "zxsrxt-kebab-case",
   "description": "Visual tweaks: hide weather, fog/haze and map edge darkness; show turret ranges, health bars, damage numbers and highlight your own blocks. Toggles in Settings > Visual tweaks. Gameplay is untouched, safe on multiplayer servers.",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "minGameVersion": "158",
   "java": true,
   "hidden": true,
