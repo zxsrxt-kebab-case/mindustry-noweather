@@ -16,6 +16,10 @@ All toggles live in **Settings → Visual tweaks** (English and Russian localiza
 - **Floating damage numbers** — damage popups over targets (yellow for enemies, red when your team takes damage)
 - **Highlight my blocks** — outlines blocks you placed this session, handy on busy multiplayer servers
 - **DPS by ammo** — every item turret's info dialog gets a computed single-target DPS line per ammo type, with the best one highlighted (accounts for reload multipliers, splash and frag bullets)
+- **Next wave preview** — HUD panel under the minimap with the upcoming wave composition: unit types, counts (per spawn point) and shields
+- **Core resource rates** — HUD panel with ±items/s for every core resource, averaged over 5 seconds
+- **Warning icons** — blinking markers over your turrets without ammo and generators without fuel
+- **Drill yield on hover** — point at an ore tile to see items/s for every drill that can mine it (full coverage, no boost)
 
 ## Installation
 

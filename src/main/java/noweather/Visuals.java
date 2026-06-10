@@ -5,22 +5,32 @@ import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Font;
+import arc.math.Mathf;
 import arc.math.geom.Rect;
+import arc.math.geom.Vec2;
 import arc.scene.ui.layout.Scl;
 import arc.struct.IntFloatMap;
 import arc.struct.IntSet;
 import arc.struct.Seq;
 import arc.util.Align;
+import arc.util.Strings;
 import arc.util.Time;
 import arc.util.Tmp;
 import mindustry.Vars;
 import mindustry.gen.Groups;
+import mindustry.gen.Icon;
 import mindustry.graphics.Drawf;
 import mindustry.graphics.Layer;
 import mindustry.graphics.Pal;
+import mindustry.type.Item;
 import mindustry.ui.Fonts;
+import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.blocks.defense.turrets.BaseTurret;
+import mindustry.world.blocks.defense.turrets.Turret;
+import mindustry.world.blocks.power.PowerGenerator;
+import mindustry.world.blocks.production.BurstDrill;
+import mindustry.world.blocks.production.Drill;
 
 public class Visuals {
     private static final Rect cam = new Rect();
@@ -130,6 +140,48 @@ public class Visuals {
                     drawBar(u.x, u.y + u.hitSize / 2f + 1f, Math.max(u.hitSize, 8f), u.health / u.maxHealth);
                 }
             });
+        }
+
+        if (on("nv-alerts", true)) {
+            float iconAlpha = 0.55f + 0.45f * Mathf.absin(Time.time, 4f, 1f);
+            Groups.build.each(b -> {
+                if (b.team != Vars.player.team() || !cam.contains(b.x, b.y)) return;
+                boolean warn =
+                    (b instanceof Turret.TurretBuild t && !t.hasAmmo())
+                    || (b instanceof PowerGenerator.GeneratorBuild g
+                        && g.productionEfficiency <= 0.001f && b.block.hasConsumers);
+                if (warn) {
+                    Draw.color(Pal.health, iconAlpha);
+                    Draw.rect(Icon.warning.getRegion(), b.x, b.y + b.block.size * 4f + 4f, 6f, 6f);
+                    Draw.color();
+                }
+            });
+        }
+
+        if (on("nv-orehover", true) && !Vars.mobile) {
+            Vec2 mouse = Core.input.mouseWorld();
+            Tile hovered = Vars.world.tileWorld(mouse.x, mouse.y);
+            Item drop = hovered == null ? null : hovered.drop();
+            if (drop != null) {
+                StringBuilder sb = new StringBuilder("[accent]").append(drop.localizedName).append("[]");
+                for (Block block : Vars.content.blocks()) {
+                    if (block instanceof Drill d && !(block instanceof BurstDrill)
+                        && d.tier >= drop.hardness && !block.isHidden()) {
+                        float perSecond = 60f * d.size * d.size / d.getDrillTime(drop);
+                        sb.append('\n').append(block.localizedName).append(": ")
+                          .append(Strings.fixed(perSecond, 2)).append('/')
+                          .append(Core.bundle.get("nv.sec", "s"));
+                    }
+                }
+                Font font = Fonts.outline;
+                boolean ints = font.usesIntegerPositions();
+                font.setUseIntegerPositions(false);
+                font.getData().setScale(1f / 4f / Scl.scl(1f));
+                font.setColor(Color.white);
+                font.draw(sb.toString(), mouse.x + 6f, mouse.y - 4f, Align.left);
+                font.getData().setScale(1f);
+                font.setUseIntegerPositions(ints);
+            }
         }
 
         if (on("nv-myblocks", true) && !myBlocks.isEmpty()) {

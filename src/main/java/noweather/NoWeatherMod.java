@@ -47,6 +47,7 @@ public class NoWeatherMod extends Mod {
         // borderDarkness so the toggle can restore it
         Events.on(EventType.WorldLoadEvent.class, e -> Core.app.post(() -> {
             Visuals.reset();
+            HudPanels.reset();
             mapBorderDarkness = Vars.state.rules.borderDarkness;
             applyBorderDarkness();
         }));
@@ -54,6 +55,7 @@ public class NoWeatherMod extends Mod {
         Events.on(EventType.ClientLoadEvent.class, e -> Core.app.post(() -> {
             applyEnvRenderers();
             BestAmmo.apply();
+            HudPanels.build();
             Vars.ui.settings.addCategory(
                 Core.bundle.get("setting.noweather.category", "Visual tweaks"),
                 Icon.waves,
@@ -69,6 +71,10 @@ public class NoWeatherMod extends Mod {
                     table.checkPref("nv-healthbars", true);
                     table.checkPref("nv-damage", true);
                     table.checkPref("nv-myblocks", true);
+                    table.checkPref("nv-wavepreview", true);
+                    table.checkPref("nv-corerates", true);
+                    table.checkPref("nv-alerts", true);
+                    table.checkPref("nv-orehover", true);
                 }
             );
         }));
