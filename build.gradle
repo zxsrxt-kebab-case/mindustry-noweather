@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'noweather'
-version = '0.12.1'
+version = '0.12.2'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -31,6 +31,6 @@ dependencies {
 jar {
     archiveBaseName = 'no-weather-mod'
 
-    // mod.json lives in the repo root so the mod browser indexer can read it
-    from('mod.json')
+    // mod.hjson lives in the repo root so the mod browser indexer can read it
+    from('mod.hjson')
 }

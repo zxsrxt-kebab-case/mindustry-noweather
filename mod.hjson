@@ -1,0 +1,10 @@
+name: "no-weather"
+displayName: "No Weather"
+author: "zxsrxt-kebab-case"
+version: "0.12.2"
+minGameVersion: 158
+java: true
+hidden: true
+main: "noweather.NoWeatherMod"
+repo: zxsrxt-kebab-case/mindustry-noweather
+description: "Quality-of-life pack: hide weather/fog/darkness, turret ranges, health bars, damage numbers, wave preview, power panel, ammo DPS stats, and a one-click miner that lays drills, bridges and water extractors. All client-side, safe on multiplayer servers."
