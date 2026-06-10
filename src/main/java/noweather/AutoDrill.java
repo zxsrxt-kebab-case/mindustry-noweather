@@ -22,6 +22,8 @@ import mindustry.world.blocks.production.Drill;
  */
 public class AutoDrill {
     private static final int MAX_PATCH = 2000, MAX_PLANS = 256;
+    /** Quarry half-size for floor-drop resources like sand: covers a (2r+1)² area around the cursor. */
+    private static final int FLOOR_RADIUS = 7;
 
     static void update() {
         if (Vars.mobile || !Vars.state.isGame() || !Core.settings.getBool("nv-autodrill", true)) return;
@@ -41,6 +43,11 @@ public class AutoDrill {
             return;
         }
 
+        // Ores are overlays with bounded patches; floor drops (sand, dark sand) cover huge
+        // areas, so those get clamped to a small quarry around the cursor instead.
+        boolean floorDrop = start.overlay().itemDrop == null;
+        int radius = floorDrop ? FLOOR_RADIUS : Integer.MAX_VALUE;
+
         // flood-fill the connected ore patch
         IntSet patch = new IntSet();
         Seq<Tile> frontier = new Seq<>();
@@ -57,7 +64,11 @@ public class AutoDrill {
             maxY = Math.max(maxY, t.y);
             for (Point2 d : Geometry.d4) {
                 Tile n = Vars.world.tile(t.x + d.x, t.y + d.y);
-                if (n != null && n.drop() == item && patch.add(n.pos())) frontier.add(n);
+                if (n != null && n.drop() == item
+                    && Math.abs(n.x - start.x) <= radius && Math.abs(n.y - start.y) <= radius
+                    && patch.add(n.pos())) {
+                    frontier.add(n);
+                }
             }
         }
 
