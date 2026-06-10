@@ -165,9 +165,18 @@ public class Visuals {
             }
         }
 
-        if (bars) {
+        boolean unitRangesEnemy = on("nv-uranges-enemy", true);
+        boolean unitRangesOwn = on("nv-uranges-own", false);
+        if (bars || unitRangesEnemy || unitRangesOwn) {
             Groups.unit.each(u -> {
-                if (u.health < u.maxHealth - 0.01f && cam.contains(u.x, u.y)) {
+                boolean ally = u.team == Vars.player.team();
+                if (ally ? unitRangesOwn : unitRangesEnemy) {
+                    float r = u.type.maxRange;
+                    if (r > 1f && cam.overlaps(Tmp.r1.set(u.x - r, u.y - r, r * 2f, r * 2f))) {
+                        Drawf.dashCircle(u.x, u.y, r, ally ? Pal.heal : Pal.health);
+                    }
+                }
+                if (bars && u.health < u.maxHealth - 0.01f && cam.contains(u.x, u.y)) {
                     drawBar(u.x, u.y + u.hitSize / 2f + 1f, Math.max(u.hitSize, 8f), u.health / u.maxHealth);
                 }
             });

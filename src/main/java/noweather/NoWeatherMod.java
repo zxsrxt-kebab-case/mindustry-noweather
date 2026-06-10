@@ -72,6 +72,8 @@ public class NoWeatherMod extends Mod {
                         value -> applyBorderDarkness());
                     table.checkPref("nv-ranges-enemy", true);
                     table.checkPref("nv-ranges-own", false);
+                    table.checkPref("nv-uranges-enemy", true);
+                    table.checkPref("nv-uranges-own", false);
                     table.checkPref("nv-healthbars", true);
                     table.checkPref("nv-damage", true);
                     table.checkPref("nv-myblocks", true);
