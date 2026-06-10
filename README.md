@@ -23,6 +23,7 @@ All toggles live in **Settings → Visual tweaks** (English and Russian localiza
 - **Power grid panel** — total power balance per second and battery charge percentage across all your networks
 - **Projector ranges** — dashed circles for built mend (green), overdrive (orange) and force (team color) projectors
 - **Spawn markers** — red drop-zone circles with a unit icon at enemy wave spawn points
+- **Auto drill placement** — select a drill, hover an ore patch, press **H**: the patch is flood-filled and covered with build plans placed greedily for maximum coverage (queued to your unit like a schematic — builds at normal speed)
 
 ## Installation
 

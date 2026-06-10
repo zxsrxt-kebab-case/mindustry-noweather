@@ -29,6 +29,7 @@ public class NoWeatherMod extends Mod {
                 Groups.weather.each(w -> w.opacity(0f));
             }
             Visuals.update();
+            AutoDrill.update();
         });
 
         Events.run(EventType.Trigger.draw, Visuals::draw);
@@ -78,6 +79,7 @@ public class NoWeatherMod extends Mod {
                     table.checkPref("nv-power", true);
                     table.checkPref("nv-projectors", true);
                     table.checkPref("nv-spawns", true);
+                    table.checkPref("nv-autodrill", true);
                 }
             );
         }));
