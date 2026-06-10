@@ -15,6 +15,10 @@ import mindustry.type.Item;
 import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
+import mindustry.world.blocks.distribution.ArmoredConveyor;
+import mindustry.world.blocks.distribution.Conveyor;
+import mindustry.world.blocks.distribution.ItemBridge;
+import mindustry.world.blocks.distribution.StackConveyor;
 import mindustry.world.blocks.production.BurstDrill;
 import mindustry.world.blocks.production.Drill;
 
@@ -218,31 +222,126 @@ public class AutoDrill {
             return;
         }
 
+        // Stack conveyors (plastanium) only load at the tail of a line, so drills can't feed
+        // them directly: lanes are built from a basic conveyor instead, merged by a collector
+        // into the loading tail of a stack-conveyor trunk.
+        boolean stack = conveyor instanceof StackConveyor;
+        Block laneBlock = stack ? basicLaneBlock() : conveyor;
+        ItemBridge bridge = findBridge();
+        boolean forward = rot == 0 || rot == 1;
+
         // one conveyor lane above each drill band; the band above feeds the same lane
-        int conveyors = 0;
+        Seq<int[]> lanes = new Seq<>(); // {lanePos, lo, hi}
         for (IntMap.Entry<int[]> e : bandSpans) {
             int lanePos = base + e.key * period + s;
-            int[] span = {e.value[0], e.value[1]};
+            int lo = e.value[0], hi = e.value[1];
             int[] above = bandSpans.get(e.key + 1);
             if (above != null) {
-                span[0] = Math.min(span[0], above[0]);
-                span[1] = Math.max(span[1], above[1]);
+                lo = Math.min(lo, above[0]);
+                hi = Math.max(hi, above[1]);
             }
-            // stick the lane out of the field on the flow side
-            if (rot == 0 || rot == 1) span[1] += 2; else span[0] -= 2;
+            lanes.add(new int[]{lanePos, lo, hi});
+        }
+        int farMax = Integer.MIN_VALUE, farMin = Integer.MAX_VALUE;
+        int laneMin = Integer.MAX_VALUE, laneMax = Integer.MIN_VALUE;
+        for (int[] l : lanes) {
+            farMax = Math.max(farMax, l[2]);
+            farMin = Math.min(farMin, l[1]);
+            laneMin = Math.min(laneMin, l[0]);
+            laneMax = Math.max(laneMax, l[0]);
+        }
+        // all lanes finish on the same exit row/column, sticking out of the field
+        int exitA = forward ? farMax + 2 : farMin - 2;
 
-            for (int a = span[0]; a <= span[1] && conveyors < MAX_CONVEYORS; a++) {
-                int cx = horizontal ? a : lanePos;
-                int cy = horizontal ? lanePos : a;
-                if (occupied.contains(Point2.pack(cx, cy))) continue;
-                if (!Build.validPlace(conveyor, Vars.player.team(), cx, cy, rot)) continue;
-                Vars.player.unit().addBuild(new BuildPlan(cx, cy, rot, conveyor));
-                conveyors++;
+        int conveyors = 0;
+        for (int[] l : lanes) {
+            if (forward) l[2] = exitA; else l[1] = exitA;
+            conveyors += placeLane(laneBlock, bridge, rot, horizontal, l[0], l[1], l[2], occupied);
+            if (conveyors >= MAX_CONVEYORS) break;
+        }
+
+        if (stack && !lanes.isEmpty()) {
+            // perpendicular collector merging every lane toward the min-side corner...
+            int collA = forward ? exitA + 1 : exitA - 1;
+            int collRot = horizontal ? 3 : 2; // down for horizontal lanes, left for vertical
+            for (int p = laneMax; p >= laneMin; p--) {
+                int cx = horizontal ? collA : p;
+                int cy = horizontal ? p : collA;
+                int r = p == laneMin ? rot : collRot;
+                if (Build.validPlace(laneBlock, Vars.player.team(), cx, cy, r)) {
+                    Vars.player.unit().addBuild(new BuildPlan(cx, cy, r, laneBlock));
+                    conveyors++;
+                }
+            }
+            // ...which feeds the loading tail of the stack-conveyor trunk
+            int step = forward ? 1 : -1;
+            for (int i = 1; i <= 6; i++) {
+                int a = collA + step * i;
+                int cx = horizontal ? a : laneMin;
+                int cy = horizontal ? laneMin : a;
+                if (Build.validPlace(conveyor, Vars.player.team(), cx, cy, rot)) {
+                    Vars.player.unit().addBuild(new BuildPlan(cx, cy, rot, conveyor));
+                    conveyors++;
+                }
             }
         }
 
         float perSecond = covered * 60f / drill.getDrillTime(item);
         toast(Core.bundle.format("nv.autodrill.done2", placed, conveyors, Strings.fixed(perSecond, 1)));
+    }
+
+    /** Lay one lane in flow order, bridging over obstacles when a bridge can span the gap. */
+    private static int placeLane(Block laneBlock, ItemBridge bridge, int rot, boolean horizontal,
+                                 int lanePos, int lo, int hi, IntSet occupied) {
+        int step = (rot == 0 || rot == 1) ? 1 : -1;
+        int begin = step > 0 ? lo : hi;
+        int end = step > 0 ? hi : lo;
+        Seq<BuildPlan> plans = new Seq<>();
+        BuildPlan last = null;
+        int lastA = 0;
+        boolean gap = false;
+        for (int a = begin; ; a += step) {
+            int cx = horizontal ? a : lanePos;
+            int cy = horizontal ? lanePos : a;
+            if (!occupied.contains(Point2.pack(cx, cy))
+                && Build.validPlace(laneBlock, Vars.player.team(), cx, cy, rot)) {
+                BuildPlan plan;
+                if (gap && last != null && bridge != null && Math.abs(a - lastA) <= bridge.range) {
+                    // convert the plan before the gap into the entry bridge linked to the exit
+                    last.block = bridge;
+                    last.config = new Point2(cx - last.x, cy - last.y);
+                    plan = new BuildPlan(cx, cy, rot, bridge);
+                } else {
+                    plan = new BuildPlan(cx, cy, rot, laneBlock);
+                }
+                gap = false;
+                plans.add(plan);
+                last = plan;
+                lastA = a;
+            } else {
+                gap = last != null;
+            }
+            if (a == end) break;
+        }
+        for (BuildPlan p : plans) Vars.player.unit().addBuild(p);
+        return plans.size;
+    }
+
+    private static Block basicLaneBlock() {
+        Block named = Vars.content.block("titanium-conveyor");
+        if (named instanceof Conveyor && !(named instanceof ArmoredConveyor)) return named;
+        for (Block b : Vars.content.blocks()) {
+            if (b instanceof Conveyor && !(b instanceof ArmoredConveyor)) return b;
+        }
+        return named;
+    }
+
+    private static ItemBridge findBridge() {
+        if (Vars.content.block("bridge-conveyor") instanceof ItemBridge ib) return ib;
+        for (Block b : Vars.content.blocks()) {
+            if (b instanceof ItemBridge ib) return ib;
+        }
+        return null;
     }
 
     private static void toast(String text) {

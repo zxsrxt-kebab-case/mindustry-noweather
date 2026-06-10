@@ -13,6 +13,7 @@ import mindustry.type.Item;
 import mindustry.ui.Styles;
 import mindustry.world.Block;
 import mindustry.world.Tile;
+import mindustry.world.blocks.distribution.ArmoredConveyor;
 import mindustry.world.blocks.distribution.Conveyor;
 import mindustry.world.blocks.distribution.StackConveyor;
 import mindustry.world.blocks.production.BurstDrill;
@@ -44,7 +45,7 @@ public class DrillUi {
         for (Block b : Vars.content.blocks()) {
             if (b.isHidden()) continue;
             if (b instanceof Drill d && !(b instanceof BurstDrill)) drills.add(d);
-            else if (b instanceof Conveyor || b instanceof StackConveyor) convs.add(b);
+            else if ((b instanceof Conveyor && !(b instanceof ArmoredConveyor)) || b instanceof StackConveyor) convs.add(b);
         }
         if (drills.isEmpty() || convs.isEmpty()) return;
 
