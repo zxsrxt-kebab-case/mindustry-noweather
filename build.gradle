@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+}
+
+group = 'noweather'
+version = '0.2.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'com.github.Anuken.Arc') {
+            details.useVersion 'v158.1'
+        }
+    }
+}
+
+dependencies {
+    compileOnly 'com.github.Anuken.Arc:arc-core:v158.1'
+    compileOnly 'com.github.Anuken.Mindustry:core:v158.1'
+}
+
+jar {
+    archiveBaseName = 'no-weather-mod'
+}
