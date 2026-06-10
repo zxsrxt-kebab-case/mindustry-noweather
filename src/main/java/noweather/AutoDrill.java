@@ -5,12 +5,14 @@ import arc.input.KeyCode;
 import arc.math.geom.Geometry;
 import arc.math.geom.Point2;
 import arc.math.geom.Vec2;
+import arc.struct.IntMap;
 import arc.struct.IntSet;
 import arc.struct.Seq;
 import arc.util.Strings;
 import mindustry.Vars;
 import mindustry.entities.units.BuildPlan;
 import mindustry.type.Item;
+import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
 import mindustry.world.blocks.production.BurstDrill;
@@ -21,7 +23,7 @@ import mindustry.world.blocks.production.Drill;
  * gets covered with build plans placed greedily for maximum ore coverage.
  */
 public class AutoDrill {
-    private static final int MAX_PATCH = 2000, MAX_PLANS = 256;
+    private static final int MAX_PATCH = 2000, MAX_PLANS = 256, MAX_CONVEYORS = 512;
     /** Quarry half-size for floor-drop resources like sand: covers a (2r+1)² area around the cursor. */
     private static final int FLOOR_RADIUS = 7;
 
@@ -118,6 +120,129 @@ public class AutoDrill {
             float perSecond = covered * 60f / drill.getDrillTime(item);
             toast(Core.bundle.format("nv.autodrill.done", placed, Strings.fixed(perSecond, 1)));
         }
+    }
+
+    /**
+     * Place drills in bands of {@code size} rows/columns separated by one-tile conveyor
+     * lanes all flowing in {@code rot} (0=right, 1=up, 2=left, 3=down). Every drill
+     * touches a lane, so ore is carried out of the field automatically.
+     */
+    static void placeWithConveyors(Drill drill, Block conveyor, Tile start, int rot) {
+        Item item = start.drop();
+        if (item == null || drill.tier < item.hardness || Vars.player.unit() == null) return;
+
+        boolean floorDrop = start.overlay().itemDrop == null;
+        int radius = floorDrop ? FLOOR_RADIUS : Integer.MAX_VALUE;
+
+        IntSet patch = new IntSet();
+        Seq<Tile> frontier = new Seq<>();
+        frontier.add(start);
+        patch.add(start.pos());
+        int minX = start.x, maxX = start.x, minY = start.y, maxY = start.y;
+        int patchSize = 0;
+        while (!frontier.isEmpty() && patchSize < MAX_PATCH) {
+            Tile t = frontier.pop();
+            patchSize++;
+            minX = Math.min(minX, t.x);
+            maxX = Math.max(maxX, t.x);
+            minY = Math.min(minY, t.y);
+            maxY = Math.max(maxY, t.y);
+            for (Point2 d : Geometry.d4) {
+                Tile n = Vars.world.tile(t.x + d.x, t.y + d.y);
+                if (n != null && n.drop() == item
+                    && Math.abs(n.x - start.x) <= radius && Math.abs(n.y - start.y) <= radius
+                    && patch.add(n.pos())) {
+                    frontier.add(n);
+                }
+            }
+        }
+
+        boolean horizontal = rot == 0 || rot == 2;
+        int s = drill.size;
+        int off = drill.sizeOffset;
+        int period = s + 1;
+        int base = horizontal ? minY : minX;
+
+        // candidates restricted to drill bands: footprint start must align to the band grid
+        Seq<int[]> candidates = new Seq<>();
+        for (int x = minX - s + 1; x <= maxX + s - 1; x++) {
+            for (int y = minY - s + 1; y <= maxY + s - 1; y++) {
+                int foot = (horizontal ? y : x) + off;
+                if (((foot - base) % period + period) % period != 0) continue;
+                int count = 0;
+                for (int dx = 0; dx < s; dx++) {
+                    for (int dy = 0; dy < s; dy++) {
+                        Tile t = Vars.world.tile(x + off + dx, y + off + dy);
+                        if (t != null && patch.contains(t.pos())) count++;
+                    }
+                }
+                if (count > 0) candidates.add(new int[]{x, y, count});
+            }
+        }
+        candidates.sort(c -> -c[2]);
+
+        IntSet occupied = new IntSet();
+        IntMap<int[]> bandSpans = new IntMap<>(); // band index -> {min, max} along the lane axis
+        int placed = 0, covered = 0;
+        for (int[] c : candidates) {
+            if (placed >= MAX_PLANS) break;
+            boolean free = true;
+            for (int dx = 0; dx < s && free; dx++) {
+                for (int dy = 0; dy < s && free; dy++) {
+                    if (occupied.contains(Point2.pack(c[0] + off + dx, c[1] + off + dy))) free = false;
+                }
+            }
+            if (!free || !Build.validPlace(drill, Vars.player.team(), c[0], c[1], 0)) continue;
+            for (int dx = 0; dx < s; dx++) {
+                for (int dy = 0; dy < s; dy++) {
+                    occupied.add(Point2.pack(c[0] + off + dx, c[1] + off + dy));
+                }
+            }
+            Vars.player.unit().addBuild(new BuildPlan(c[0], c[1], 0, drill));
+            placed++;
+            covered += c[2];
+
+            int foot = (horizontal ? c[1] : c[0]) + off;
+            int along = (horizontal ? c[0] : c[1]) + off;
+            int band = (foot - base) / period;
+            int[] span = bandSpans.get(band);
+            if (span == null) bandSpans.put(band, new int[]{along, along + s - 1});
+            else {
+                span[0] = Math.min(span[0], along);
+                span[1] = Math.max(span[1], along + s - 1);
+            }
+        }
+
+        if (placed == 0) {
+            toast(Core.bundle.get("nv.autodrill.none", "No valid spots for drills"));
+            return;
+        }
+
+        // one conveyor lane above each drill band; the band above feeds the same lane
+        int conveyors = 0;
+        for (IntMap.Entry<int[]> e : bandSpans) {
+            int lanePos = base + e.key * period + s;
+            int[] span = {e.value[0], e.value[1]};
+            int[] above = bandSpans.get(e.key + 1);
+            if (above != null) {
+                span[0] = Math.min(span[0], above[0]);
+                span[1] = Math.max(span[1], above[1]);
+            }
+            // stick the lane out of the field on the flow side
+            if (rot == 0 || rot == 1) span[1] += 2; else span[0] -= 2;
+
+            for (int a = span[0]; a <= span[1] && conveyors < MAX_CONVEYORS; a++) {
+                int cx = horizontal ? a : lanePos;
+                int cy = horizontal ? lanePos : a;
+                if (occupied.contains(Point2.pack(cx, cy))) continue;
+                if (!Build.validPlace(conveyor, Vars.player.team(), cx, cy, rot)) continue;
+                Vars.player.unit().addBuild(new BuildPlan(cx, cy, rot, conveyor));
+                conveyors++;
+            }
+        }
+
+        float perSecond = covered * 60f / drill.getDrillTime(item);
+        toast(Core.bundle.format("nv.autodrill.done2", placed, conveyors, Strings.fixed(perSecond, 1)));
     }
 
     private static void toast(String text) {

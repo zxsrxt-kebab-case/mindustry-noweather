@@ -149,6 +149,10 @@ public class Visuals {
             });
         }
 
+        if (DrillUi.pending != null) {
+            Drawf.square(DrillUi.pending.worldx(), DrillUi.pending.worldy(), 6f, Pal.accent);
+        }
+
         if (on("nv-spawns", true) && Vars.state.rules.waves) {
             float dropRadius = Vars.state.rules.dropZoneRadius;
             for (Tile spawn : Vars.spawner.getSpawns()) {

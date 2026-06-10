@@ -30,6 +30,7 @@ public class NoWeatherMod extends Mod {
             }
             Visuals.update();
             AutoDrill.update();
+            DrillUi.update();
         });
 
         Events.run(EventType.Trigger.draw, Visuals::draw);
@@ -49,6 +50,7 @@ public class NoWeatherMod extends Mod {
         Events.on(EventType.WorldLoadEvent.class, e -> Core.app.post(() -> {
             Visuals.reset();
             HudPanels.reset();
+            DrillUi.reset();
             mapBorderDarkness = Vars.state.rules.borderDarkness;
             applyBorderDarkness();
         }));
@@ -57,6 +59,7 @@ public class NoWeatherMod extends Mod {
             applyEnvRenderers();
             BestAmmo.apply();
             HudPanels.build();
+            DrillUi.build();
             Vars.ui.settings.addCategory(
                 Core.bundle.get("setting.noweather.category", "Visual tweaks"),
                 Icon.waves,
@@ -80,6 +83,7 @@ public class NoWeatherMod extends Mod {
                     table.checkPref("nv-projectors", true);
                     table.checkPref("nv-spawns", true);
                     table.checkPref("nv-autodrill", true);
+                    table.checkPref("nv-drillui", true);
                 }
             );
         }));

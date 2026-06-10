@@ -24,6 +24,7 @@ All toggles live in **Settings → Visual tweaks** (English and Russian localiza
 - **Projector ranges** — dashed circles for built mend (green), overdrive (orange) and force (team color) projectors
 - **Spawn markers** — red drop-zone circles with a unit icon at enemy wave spawn points
 - **Auto drill placement** — select a drill, hover an ore patch, press **H**: the patch is flood-filled and covered with build plans placed greedily for maximum coverage (queued to your unit like a schematic — builds at normal speed)
+- **Miner panel** — bottom-left button opens a drill picker, then a conveyor picker; click an ore patch in the world and choose the output direction — drills are placed in bands with conveyor lanes between them, all flowing the chosen way. Floor resources like sand are clamped to a compact quarry area
 
 ## Installation
 
