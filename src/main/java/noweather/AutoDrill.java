@@ -108,6 +108,10 @@ public class AutoDrill {
             return;
         }
 
+        for (int[] c : drills) {
+            Vars.player.unit().addBuild(new BuildPlan(c[0], c[1], 0, drill));
+        }
+
         // greedy set cover: pick cells serving the most still-uncovered drills
         Seq<int[]> nodes = new Seq<>(); // {x, y}
         IntSet nodeSet = new IntSet();
